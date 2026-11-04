@@ -2,13 +2,13 @@
 
 Joel Alfonso Pérez Díaz
 
-Esta es la base de datos de Spotify hecha en PostgreSQL. Guarda los planes, los suscriptores con su perfil y su biblioteca, las playlists, las canciones, los álbumes y los artistas. Los datos son los que nos mandó Laura (tablas A, B, C y D). También tiene un archivo de pruebas para revisar que la base cumple las reglas del negocio.
+Esta es la base de datos de Spotify hecha en PostgreSQL. Guarda los planes, los suscriptores con su perfil y su biblioteca, las playlists, las canciones, los álbumes y los artistas. Ya viene con datos de ejemplo. También tiene un archivo de pruebas para revisar que la base cumple las reglas del negocio.
 
 ## Archivos
 
 ```
 db/01_schema.sql           crea las 14 tablas
-db/02_seed.sql             mete los datos de Laura
+db/02_seed.sql             mete los datos iniciales
 tests.sql                  las pruebas
 docs/diagrama_conceptual.png
 docs/diagrama_er.png
@@ -54,7 +54,7 @@ docker compose exec postgres psql -U admin -d spotify -f /tests.sql
 
 `tests.sql` tiene tres partes:
 
-- a) Las preguntas de Laura. Hay una consulta por pregunta y en un comentario está lo que debe salir.
+- a) Preguntas sobre los datos. Hay una consulta por pregunta y en un comentario está lo que debe salir.
 - b) Intentos de romper las reglas. Hay al menos uno por cada tipo de restricción (PRIMARY KEY, FOREIGN KEY, NOT NULL, UNIQUE y CHECK). Todos deben dar ERROR.
 - c) Registro y eliminación de un suscriptor. Cada una va en una transacción. Hay un caso que funciona y otro que falla a la mitad. Con una consulta antes y otra después se ve que, cuando falla, los datos quedan igual que al principio.
 
@@ -96,11 +96,11 @@ Hay tres reglas que no se pueden poner con una restricción sencilla, porque pid
 
 ## Supuestos
 
-- Los datos no traían ids para `subscriptions`, `subscribers`, `profiles` y `libraries`. Los numeré del 1 en adelante, en el orden en que salen en las tablas de Laura. Cada biblioteca tiene el mismo número que su suscriptor.
+- Los datos no traían ids para `subscriptions`, `subscribers`, `profiles` y `libraries`. Los numeré del 1 en adelante, en el orden en que salen en los datos originales. Cada biblioteca tiene el mismo número que su suscriptor.
 - La duración de las canciones se guarda como `TIME`, por ejemplo `00:02:45`.
 - `photo` puede quedar vacía porque marta no tiene foto. `photo` y `cover` guardan solo el nombre del archivo.
-- La tarea pedía cuatro casos. Dos ya estaban en los datos de Laura: la playlist vacía (13, Viaje) y la canción sin álbum (108, Calor de Agosto). Los otros dos los agregué yo:
+- La tarea pedía cuatro casos. Dos ya estaban en los datos originales: la playlist vacía (13, Viaje) y la canción sin álbum (108, Calor de Agosto). Los otros dos los agregué yo:
   - el plan Estudiantes (69 MXN, sin anuncios), que no tiene suscriptores;
   - el artista A11 Natanael Cano (MX), que no tiene canciones ni álbumes.
 - No uso `ON DELETE CASCADE`. Para borrar un suscriptor primero borro, una por una, las cosas que dependen de él. Las canciones, los álbumes y los artistas no se borran.
-- La pregunta 5 de Laura (la canción más escuchada) no se puede responder porque ninguna tabla guarda las reproducciones. En `tests.sql` explico qué tabla haría falta.
+- La pregunta 5 (la canción más escuchada) no se puede responder porque ninguna tabla guarda las reproducciones. En `tests.sql` explico qué tabla haría falta.

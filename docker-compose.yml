@@ -11,5 +11,24 @@ services:
       - ./db:/docker-entrypoint-initdb.d:ro   # Ejecuta 01_schema.sql y 02_seed.sql al inicializarse
       - ./tests.sql:/tests.sql:ro             # Para correr las pruebas con psql
       - datos:/var/lib/postgresql             # Guarda los datos fuera del contenedor
+
+  kafka:                    # El broker de Kafka. Sin ports: solo lo usan otros contenedores
+    image: apache/kafka:4.1.0                                   # Imagen oficial de Kafka 4.1
+    environment:            # Un broker que trabaja solo, en modo KRaft (sin ZooKeeper)
+      KAFKA_NODE_ID: 1                                          # Identificador de este broker
+      KAFKA_PROCESS_ROLES: broker,controller                    # Guarda mensajes y se coordina a si mismo
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093     # 9092 para los programas, 9093 para coordinarse
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092        # La direccion que se les da a los programas
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER               # Cual puerto es el de coordinacion
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT  # Sin cifrado ni contrasena
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093          # Quien coordina: este mismo broker
+      KAFKA_NUM_PARTITIONS: 1                                   # Los topicos nuevos tienen una particion
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1                 # Una copia del topico interno de offsets
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1         # Una copia del topico interno de transacciones
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1                    # Basta una copia al dia para escribir en el
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1 # Una copia del topico interno de share groups
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1            # Basta una copia al dia para escribir en el
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0                 # El consumer empieza a leer sin esperar 3 s
+
 volumes:
   datos:

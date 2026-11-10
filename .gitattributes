@@ -1,0 +1,6 @@
+# Fin de linea LF en todo el repositorio: los archivos se usan dentro de
+# contenedores Linux (por ejemplo, ingestion/crontab falla con CRLF).
+* text=auto eol=lf
+
+# Las imagenes son binarias: Git no debe tocar sus bytes
+*.png binary

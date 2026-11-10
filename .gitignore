@@ -1,2 +1,5 @@
 # Credenciales: este archivo NO se sube al repositorio
 .env
+
+# Librerias que uv instala en tu computadora: cada quien crea la suya con uv
+.venv/

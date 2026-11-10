@@ -1,0 +1,6 @@
+# Lo que Docker NO debe mandar al construir la imagen.
+# .venv es el entorno de tu computadora: la imagen crea el suyo con uv sync.
+# .env tiene contrasenas: las variables llegan por docker-compose.yml, no dentro de la imagen.
+.venv/
+.git/
+.env

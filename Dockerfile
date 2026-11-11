@@ -21,3 +21,10 @@ WORKDIR /app
 # Primero las dependencias y despues el codigo: editar un .py no reinstala las librerias
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked
+
+# El codigo: app_simulator/ simula la app (otro equipo) e ingestion/ es nuestro sistema
+COPY app_simulator/ app_simulator/
+COPY ingestion/ ingestion/
+
+# Instala el horario del processor como el de root, el usuario de los contenedores
+RUN crontab ingestion/crontab

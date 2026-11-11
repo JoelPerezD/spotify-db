@@ -1,0 +1,3 @@
+# minuto hora dia-del-mes mes dia-de-la-semana  comando
+# Cada 5 minutos, en los minutos 0, 5, 10... Rutas completas: cron no ejecuta desde /app.
+*/5 * * * * /app/.venv/bin/python /app/ingestion/processor.py

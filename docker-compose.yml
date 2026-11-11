@@ -30,5 +30,57 @@ services:
       KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1            # Basta una copia al dia para escribir en el
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0                 # El consumer empieza a leer sin esperar 3 s
 
-volumes:
-  datos:
+  producer:                 # La app simulada: publica reproducciones en Kafka
+    build: .                # Construye la imagen con el Dockerfile de esta carpeta
+    command: ["/app/.venv/bin/python", "app_simulator/producer.py"]
+    environment:            # Las variables que el programa lee con os.environ
+      POSTGRES_HOST: postgres                 # PostgreSQL, por el nombre de su servicio
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092     # Kafka, por el nombre de su servicio
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+      INTERVAL_SECONDS: ${INTERVAL_SECONDS}
+      SKIP_RATE: ${SKIP_RATE}
+      DUPLICATE_RATE: ${DUPLICATE_RATE}
+      MAX_DUPLICATE_DELAY_SECONDS: ${MAX_DUPLICATE_DELAY_SECONDS}
+      MAX_PLAY_AGE_DAYS: ${MAX_PLAY_AGE_DAYS}
+    volumes:
+      - enviados:/app/sent  # sent.log: los originales enviados, la referencia de verify.py
+      - logs:/app/logs
+    depends_on: [postgres, kafka]   # Se inicia despues, pero no espera a que esten listos
+    restart: on-failure             # Si termina con error, Docker lo vuelve a iniciar
+
+  consumer:                 # Lee los mensajes de Kafka y los guarda en el crudo
+    build: .
+    command: ["/app/.venv/bin/python", "ingestion/consumer.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+    volumes:
+      - crudo:/app/data     # Donde escribe el crudo; el processor ve el mismo volumen
+      - logs:/app/logs
+    depends_on: [kafka]
+    restart: on-failure
+
+  processor:                # cron ejecuta aqui el processor segun ingestion/crontab
+    build: .
+    # Copia las variables a /etc/environment, para que cron las vea, e inicia cron en primer plano
+    command: ["sh", "-c", "printenv | grep -E '^(POSTGRES|KAFKA)_' > /etc/environment && cron -f"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      KAFKA_TOPIC: ${KAFKA_TOPIC}           # Que carpeta del crudo procesa
+    volumes:
+      - crudo:/app/data     # El mismo crudo que escribe el consumer
+      - logs:/app/logs
+      - enviados:/app/sent:ro   # Solo lo lee verify.py, que se ejecuta en este contenedor
+    depends_on: [postgres]
+
+volumes:                    # Docker los conserva hasta docker compose down -v
+  datos:                    # Los datos de PostgreSQL
+  crudo:                    # El crudo
+  logs:                     # Los logs de los programas
+  enviados:                 # sent.log del producer

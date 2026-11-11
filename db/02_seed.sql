@@ -1,6 +1,6 @@
 -- Datos iniciales de la BD de Spotify
--- Son los datos de las tablas A, B, C y D de Laura, ya normalizados en la
--- Tarea 2. Conservo sus ids (song_id, album_id, artist_id, playlist_id).
+-- Son los datos de origen (tablas A, B, C y D), ya normalizados.
+-- Conservo sus ids (song_id, album_id, artist_id, playlist_id).
 -- Los ids de subscriptions, subscribers, profiles y libraries no venian en
 -- los datos; los numere yo en el orden en que aparecen.
 

@@ -1,8 +1,8 @@
--- Migracion 03: conteos de reproducciones (Tarea 4)
+-- Migracion 03: conteos de reproducciones
 -- Se aplica sobre una base que ya tiene 01_schema.sql y 02_seed.sql.
 -- Se puede ejecutar varias veces sin error (IF NOT EXISTS).
 -- Una vez aplicada, no se edita: cualquier correccion va en una migracion nueva.
--- Regla de la tarea: aqui solo se guardan conteos, nunca los mensajes de Kafka.
+-- Aqui solo se guardan conteos, nunca los mensajes de Kafka: esos quedan en el crudo.
 -- Sin ON DELETE CASCADE, igual que el resto del esquema.
 
 -- Cuantas reproducciones validas hizo cada suscriptor de cada cancion, desde siempre.

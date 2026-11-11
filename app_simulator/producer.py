@@ -1,5 +1,6 @@
 """Simula la app de Spotify: cada INTERVAL_SECONDS segundos alguien reproduce una cancion
-y se publica en Kafka un mensaje con el formato de la seccion 2.3 de la tarea.
+y se publica en Kafka un mensaje con el formato fijo de las reproducciones:
+{"event_id", "subscriber_id", "song_id", "played_at" (ISO 8601 con zona horaria), "ms_played"}.
 
 Para que la ingesta tenga casos dificiles, el simulador genera:
 - skips: una proporcion SKIP_RATE de mensajes con ms_played < 30000;
@@ -41,8 +42,8 @@ SENT_FILE = Path("/app/sent/sent.log")
 # Duplicados programados: (momento de envio, desempate, mensaje). heapq entrega primero el mas proximo.
 pending_duplicates = []
 tie_breaker = itertools.count()
-MIN_VALID_MS = 30_000  # regla 1: menos de 30 s es un skip
-# Zonas horarias de los telefonos simulados. El processor debe pasarlas a UTC (regla 3).
+MIN_VALID_MS = 30_000  # menos de 30 s es un skip: no cuenta como reproduccion
+# Zonas horarias de los telefonos simulados. El processor las pasa a UTC (los dias se definen en UTC).
 PHONE_TIMEZONES = [timezone(timedelta(hours=h)) for h in (-7, -6, -5, -3, 0, 1)]
 
 
@@ -85,7 +86,7 @@ def read_catalog():
 
 
 def new_play(subscriber_ids, durations, config):
-    """Inventa una reproduccion con el formato fijo de la tarea."""
+    """Inventa una reproduccion con el formato fijo de los mensajes."""
     song_id = random.choice(list(durations))
     if random.random() < config["skip_rate"]:
         ms_played = random.randint(0, MIN_VALID_MS - 1)

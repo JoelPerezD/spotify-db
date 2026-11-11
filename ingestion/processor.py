@@ -1,9 +1,9 @@
 """Lo ejecuta cron cada 5 minutos (ingestion/crontab). En cada corrida:
 
 1. Lee las lineas del crudo que no ha procesado, segun ingestion_checkpoint.
-2. Quita los duplicados por event_id (regla 2).
-3. Se queda con las reproducciones validas: ms_played >= 30000 (regla 1).
-4. Suma los conteos en subscriber_song_play y song_daily_play (dia en UTC, regla 3).
+2. Quita los duplicados por event_id.
+3. Se queda con las reproducciones validas: ms_played >= 30000 (menos es un skip).
+4. Suma los conteos en subscriber_song_play y song_daily_play (el dia es en UTC).
 5. Anota en /app/logs/processor.log cuantos mensajes leyo, cuantos descarto y por que.
 
 Duplicados: un duplicado llega a Kafka, a lo mas, 5 minutos despues que el original. El crudo
@@ -77,7 +77,7 @@ def parse(line):
         "subscriber_id": subscriber_id,
         "song_id": song_id,
         "ms_played": ms_played,
-        "play_date": played.astimezone(timezone.utc).date(),  # regla 3: el dia es en UTC
+        "play_date": played.astimezone(timezone.utc).date(),  # el dia se define en UTC
     }
 
 

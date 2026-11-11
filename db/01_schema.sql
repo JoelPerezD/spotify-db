@@ -1,5 +1,5 @@
 -- Esquema de la BD de Spotify
--- Sale del diagrama ER de la Tarea 2 (docs/diagrama_er.png).
+-- Sale del diagrama ER normalizado (docs/diagrama_er.png).
 -- Las tablas van en orden: primero las que no dependen de nadie y
 -- despues las que tienen llaves foraneas hacia ellas.
 -- No uso ON DELETE CASCADE: si una fila tiene dependientes, PostgreSQL

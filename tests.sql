@@ -8,7 +8,7 @@
 
 
 \echo '=============================================='
-\echo 'a) Preguntas de Laura'
+\echo 'a) Preguntas del negocio'
 \echo '=============================================='
 
 \echo '1. Canciones de la playlist 10, en orden, con sus artistas'
@@ -77,8 +77,8 @@ LEFT JOIN (
 ORDER BY su.subscriber_id, g.tipo = 'album', g.titulo;
 
 \echo '5. La cancion mas escuchada'
--- En la Tarea 3 no se podia responder: ninguna tabla guardaba reproducciones.
--- Desde la Tarea 4, song_daily_play tiene las reproducciones validas de cada
+-- Con solo el esquema del catalogo no se podia responder: ninguna tabla guardaba
+-- reproducciones. song_daily_play tiene las reproducciones validas de cada
 -- cancion por dia; sumando todos los dias sale el total de siempre.
 -- Uso song_daily_play y no subscriber_song_play porque no cambia cuando se
 -- elimina un suscriptor (ver la parte c). WITH TIES muestra empates.
@@ -90,7 +90,7 @@ GROUP BY s.song_id, s.title
 ORDER BY reproducciones DESC
 FETCH FIRST 1 ROWS WITH TIES;
 
-\echo '6. Top 100 semanal (Tarea 4, regla 4)'
+\echo '6. Top 100 semanal'
 -- Las 100 canciones con mas reproducciones de la ultima semana COMPLETA, de
 -- lunes a domingo, en UTC. date_trunc('week', ...) da el lunes de la semana en
 -- curso; la semana anterior va de ese lunes menos 7 dias hasta el domingo.
@@ -106,7 +106,7 @@ GROUP BY s.song_id, s.title
 ORDER BY reproducciones DESC, s.song_id
 LIMIT 100;
 
-\echo '7. Las 20 canciones mas escuchadas de un suscriptor (Tarea 4, regla 5): ana'
+\echo '7. Las 20 canciones mas escuchadas de un suscriptor: ana'
 -- Desde siempre, asi que basta subscriber_song_play: ya es el total por
 -- suscriptor y cancion. Empates por song_id para que el orden sea estable.
 -- Esperado: hasta 20 filas (con el seed solo hay 8 canciones), de mayor a menor.
@@ -130,7 +130,7 @@ INSERT INTO songs (song_id, title, duration, genre)
 VALUES (101, 'Otra cancion', '00:03:00', 'Pop');
 
 \echo 'PK: agregar dos veces la misma cancion a la playlist 10'
--- Regla (supuesto de la Tarea 2): una cancion no se repite dentro de una playlist.
+-- Regla: una cancion no se repite dentro de una playlist.
 -- Esperado: ERROR duplicate key value violates unique constraint "playlist_song_pkey"
 INSERT INTO playlist_song (playlist_id, song_id, added_at, position)
 VALUES (10, 101, '2026-11-01', 4);
@@ -268,7 +268,7 @@ INSERT INTO playlist_song (playlist_id, song_id, added_at, position) VALUES
     (15, 105, '2026-11-03', 2);
 INSERT INTO library_song (library_id, song_id) VALUES (5, 106);
 INSERT INTO library_album (library_id, album_id) VALUES (5, 203);
--- Desde la Tarea 4 un suscriptor tambien tiene conteos. En la app real los
+-- Un suscriptor tambien tiene conteos de reproducciones. En la app real los
 -- escribe el processor; aqui los pongo a mano para que la eliminacion tenga
 -- que borrarlos. Solo en subscriber_song_play: song_daily_play no tiene
 -- suscriptor (ver el comentario de la eliminacion).
@@ -291,7 +291,7 @@ WHERE play_date >= date_trunc('week', now() AT TIME ZONE 'UTC')::date - 7
 -- Borro de abajo hacia arriba: primero lo que depende del suscriptor y al
 -- final el suscriptor. Solo borro filas de sofia; las canciones y el album
 -- que tenia guardados siguen en el catalogo.
--- Tarea 4: sin ON DELETE CASCADE, tambien hay que borrar a mano sus conteos de
+-- Sin ON DELETE CASCADE, tambien hay que borrar a mano sus conteos de
 -- subscriber_song_play; si no, su llave foranea impide borrar al suscriptor.
 --
 -- Cambia el top semanal al eliminar a un suscriptor? No. El top sale de
@@ -343,7 +343,7 @@ SELECT (SELECT COUNT(*) FROM playlists WHERE subscriber_id = 2) AS playlists,
        (SELECT COUNT(*) FROM libraries WHERE subscriber_id = 2)  AS biblioteca;
 
 BEGIN;
--- Estos cinco DELETE si funcionan (el primero, sus conteos de la Tarea 4)...
+-- Estos cinco DELETE si funcionan (el primero, sus conteos de reproducciones)...
 DELETE FROM subscriber_song_play WHERE subscriber_id = 2;
 DELETE FROM playlist_song
 WHERE playlist_id IN (SELECT playlist_id FROM playlists WHERE subscriber_id = 2);

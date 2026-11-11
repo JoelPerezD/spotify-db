@@ -1,8 +1,8 @@
-# Plataforma de datos de reproducciones musicales
+# Spotify: plataforma de datos de reproducciones
 
 Joel Alfonso Pérez Díaz
 
-Plataforma de datos inspirada en un servicio de streaming de música como Spotify. Recibe en tiempo real los eventos que genera una app cada vez que alguien reproduce una canción, los guarda sin modificar como historial en archivos y, cada 5 minutos, los limpia y mantiene los conteos que la app necesita mostrar: el **top 100 semanal** de canciones y las **20 canciones más escuchadas de cada usuario**. La base de datos transaccional guarda solo esos conteos, no cada evento, para no crecer sin fin ni competir con las consultas de la app. Los eventos completos quedan en archivos para análisis.
+Plataforma de datos para Spotify, desarrollada como caso de estudio con una app simulada. Recibe en tiempo real, a través de Kafka, los eventos que genera la app de Spotify cada vez que alguien reproduce una canción. Los guarda sin modificar como historial en archivos y, cada 5 minutos, los limpia y mantiene los conteos que la app necesita mostrar: el **top 100 semanal** de canciones y las **20 canciones más escuchadas de cada suscriptor**. La base de datos de Spotify en PostgreSQL (catálogo, suscriptores, playlists y bibliotecas) guarda solo esos conteos, no cada evento, para no crecer sin fin ni competir con las consultas de la app. Los eventos completos quedan en archivos para análisis.
 
 **Stack:** Python 3.13 · Apache Kafka 4.1 (KRaft) · PostgreSQL 18 · Docker Compose · cron · uv · psycopg 3 · confluent-kafka
 
@@ -22,7 +22,7 @@ producer ──→ Kafka (tópico streams) ──→ consumer ──→ crudo: u
 |---|---|---|
 | `postgres` | `postgres:18` | Esquema relacional del catálogo y los usuarios, más las tablas de conteos |
 | `kafka` | `apache/kafka:4.1.0` | Broker en modo KRaft (sin ZooKeeper) |
-| `producer` | propia (`Dockerfile`) | `app_simulator/producer.py`: simula la app y publica reproducciones |
+| `producer` | propia (`Dockerfile`) | `app_simulator/producer.py`: simula la app de Spotify y publica reproducciones |
 | `consumer` | propia | `ingestion/consumer.py`: guarda cada mensaje en el crudo, sin interpretarlo |
 | `processor` | propia | cron ejecuta `ingestion/processor.py` cada 5 minutos |
 
@@ -75,7 +75,7 @@ Además, cada corrida toma un candado de PostgreSQL (`pg_try_advisory_xact_lock`
 
 ## Modelo de datos
 
-El esquema relacional (`db/01_schema.sql`, 14 tablas) cubre planes, suscriptores con perfil y biblioteca, playlists, canciones, álbumes y artistas, a partir de un diagrama ER normalizado (`docs/diagrama_er.png`). Las cardinalidades se implementan con `NOT NULL` (mínimo 1), `UNIQUE` (relaciones 1 a 1) y `CHECK` para las reglas del negocio. No usa `ON DELETE CASCADE`: borrar un suscriptor exige eliminar antes, de forma explícita, todo lo que depende de él.
+El esquema relacional de Spotify (`db/01_schema.sql`, 14 tablas) cubre planes, suscriptores con perfil y biblioteca, playlists, canciones, álbumes y artistas, a partir de un diagrama ER normalizado (`docs/diagrama_er.png`). Las cardinalidades se implementan con `NOT NULL` (mínimo 1), `UNIQUE` (relaciones 1 a 1) y `CHECK` para las reglas del negocio. No usa `ON DELETE CASCADE`: borrar un suscriptor exige eliminar antes, de forma explícita, todo lo que depende de él.
 
 La migración `db/03_play_counts.sql` agrega la capa de conteos (diagrama en [`docs/diagrama_er_conteos.md`](docs/diagrama_er_conteos.md)):
 

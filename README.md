@@ -108,12 +108,13 @@ Para apagar todo sin perder los datos: `docker compose down`. Para borrar todo, 
 | Hasta dónde leyó el consumer | `docker compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server kafka:9092 --describe --group ingestion` |
 | Los conteos | `docker compose exec postgres psql -U admin -d spotify -c 'SELECT sum(num_rep) FROM song_daily_play'` |
 
-`docker compose logs processor` no muestra nada y es normal: lo que imprime un programa que ejecuta cron no aparece en ningún lado. Por eso el processor escribe todo en `/app/logs/processor.log`. Cada corrida deja una línea como esta:
+`docker compose logs processor` no muestra nada y es normal: lo que imprime un programa que ejecuta cron no aparece en ningún lado. Por eso el processor escribe todo en `/app/logs/processor.log`. Cada corrida deja una línea como esta, tomada de la corrida de evidencia:
 
 ```
-INFO Corrida: 300 leidos de 2026-11-11T00.log; 214 validas; descartados: 30 duplicados, 56 skips,
-0 malformados, 0 con ids inexistentes; filas actualizadas: 32 en subscriber_song_play, 120 en song_daily_play
+2026-11-11T00:30:02+0000 INFO Corrida: 334 leidos de 2026-11-11T00.log; 244 validas; descartados: 34 duplicados, 56 skips, 0 malformados, 0 con ids inexistentes; filas actualizadas: 32 en subscriber_song_play, 102 en song_daily_play
 ```
+
+Si una línea no respeta el formato, el log copia un ejemplo como `WARNING`, y los errores aparecen como `ERROR`, con el traceback cuando son inesperados.
 
 Para no esperar a cron, el processor se puede ejecutar a mano:
 
@@ -140,7 +141,39 @@ Para obtener la evidencia:
 
 ### Salida de verify.py
 
-<!-- VERIFY_OUTPUT -->
+Corrida desde un clon limpio del repositorio: `docker compose down -v`, `docker compose up -d --build` a las 00:18 UTC, 15 minutos de producción, `docker compose stop producer` a las 00:35 y `verify.py` después de la corrida del processor de las 00:40.
+
+```
+$ docker compose exec processor /app/.venv/bin/python /app/ingestion/verify.py
+sent.log: 966 mensajes originales, 774 reproducciones validas
+song_daily_play: 774 | subscriber_song_play: 774
+song_id    sent.log  song_daily_play  subscriber_song_play
+101              93               93                    93
+102             103              103                   103
+103              96               96                    96
+104              72               72                    72
+105              92               92                    92
+106             108              108                   108
+107             101              101                   101
+108             109              109                   109
+OK
+```
+
+Las cuentas cuadran con el resto de la corrida:
+
+- Kafka recibió 1043 mensajes (`streams:0:1043`): 966 originales más 77 duplicados.
+- El consumer los guardó todos: el crudo tiene 1043 líneas y el grupo `ingestion` quedó con LAG 0.
+- El processor descartó 77 duplicados y 192 skips en sus cinco corridas, y contó 774 reproducciones válidas, las mismas de `sent.log`.
+
+El log del processor de esa corrida:
+
+```
+2026-11-11T00:20:02+0000 INFO Corrida: 58 leidos de 2026-11-11T00.log; 52 validas; descartados: 0 duplicados, 6 skips, 0 malformados, 0 con ids inexistentes; filas actualizadas: 22 en subscriber_song_play, 46 en song_daily_play
+2026-11-11T00:25:02+0000 INFO Corrida: 312 leidos de 2026-11-11T00.log; 234 validas; descartados: 12 duplicados, 66 skips, 0 malformados, 0 con ids inexistentes; filas actualizadas: 32 en subscriber_song_play, 99 en song_daily_play
+2026-11-11T00:30:02+0000 INFO Corrida: 334 leidos de 2026-11-11T00.log; 244 validas; descartados: 34 duplicados, 56 skips, 0 malformados, 0 con ids inexistentes; filas actualizadas: 32 en subscriber_song_play, 102 en song_daily_play
+2026-11-11T00:35:01+0000 INFO Corrida: 329 leidos de 2026-11-11T00.log; 236 validas; descartados: 30 duplicados, 63 skips, 0 malformados, 0 con ids inexistentes; filas actualizadas: 32 en subscriber_song_play, 101 en song_daily_play
+2026-11-11T00:40:02+0000 INFO Corrida: 10 leidos de 2026-11-11T00.log; 8 validas; descartados: 1 duplicados, 1 skips, 0 malformados, 0 con ids inexistentes; filas actualizadas: 7 en subscriber_song_play, 7 en song_daily_play
+```
 
 ## Cómo correr las pruebas
 

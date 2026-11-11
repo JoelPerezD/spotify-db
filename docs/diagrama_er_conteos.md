@@ -1,7 +1,7 @@
-# Diagrama ER: tablas de la Tarea 4
+# Diagrama ER: capa de conteos de reproducciones
 
-Complementa `diagrama_er.png`: muestra las tablas nuevas y su relación con las tablas de la
-Tarea 3 que ya existían (`subscribers` y `songs`; las demás no cambian). GitHub dibuja el
+Complementa `diagrama_er.png`: muestra las tablas de conteos y su relación con las tablas del
+esquema relacional que usan (`subscribers` y `songs`; las demás no cambian). GitHub dibuja el
 diagrama a partir del código.
 
 ```mermaid

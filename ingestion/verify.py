@@ -20,11 +20,12 @@ import psycopg
 
 LOG_DIR = Path("/app/logs")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    handlers=[logging.FileHandler(LOG_DIR / "verify.log"), logging.StreamHandler(sys.stdout)],
-)
+# En verify.log cada linea lleva fecha, hora y nivel; en la consola solo el mensaje, para que la tabla se lea.
+file_handler = logging.FileHandler(LOG_DIR / "verify.log")
+file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%Y-%m-%dT%H:%M:%S%z"))
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(logging.Formatter("%(message)s"))
+logging.basicConfig(level=logging.INFO, handlers=[file_handler, console_handler])
 log = logging.getLogger("verify")
 
 SENT_FILE = Path("/app/sent/sent.log")
@@ -64,10 +65,13 @@ except FileNotFoundError:
     log.error("No existe %s: el producer todavia no ha enviado nada o falta el volumen enviados", SENT_FILE)
     sys.exit(1)
 except KeyError as e:
-    log.error("Falta la variable de entorno %s", e)
+    log.error("Falta la variable de entorno %s: revisa environment: del servicio processor en docker-compose.yml", e)
     sys.exit(1)
 except psycopg.OperationalError as e:
     log.error("No se pudo conectar a PostgreSQL: %s", e)
+    sys.exit(1)
+except Exception:
+    log.exception("Error inesperado al leer %s o la base de datos", SENT_FILE)
     sys.exit(1)
 
 log.info("sent.log: %s mensajes originales, %s reproducciones validas", unique_sent, sum(expected.values()))

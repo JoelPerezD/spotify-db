@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./db:/docker-entrypoint-initdb.d:ro   # Ejecuta 01_schema.sql y 02_seed.sql al inicializarse
+      - ./db:/docker-entrypoint-initdb.d:ro   # Con el volumen vacio ejecuta db/01_ a 03_, en orden
       - ./tests.sql:/tests.sql:ro             # Para correr las pruebas con psql
       - datos:/var/lib/postgresql             # Guarda los datos fuera del contenedor
 
@@ -29,6 +29,10 @@ services:
       KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1 # Una copia del topico interno de share groups
       KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1            # Basta una copia al dia para escribir en el
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0                 # El consumer empieza a leer sin esperar 3 s
+      # Agregada (no viene en el PDF): el timestamp de cada mensaje es la hora en que llego al broker
+      # (LogAppendTime), no la que pone el productor (CreateTime). La regla de duplicados se mide por
+      # la llegada a Kafka, y asi no depende del reloj de cada productor.
+      KAFKA_LOG_MESSAGE_TIMESTAMP_TYPE: LogAppendTime
 
   producer:                 # La app simulada: publica reproducciones en Kafka
     build: .                # Construye la imagen con el Dockerfile de esta carpeta

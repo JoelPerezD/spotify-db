@@ -38,6 +38,9 @@ logging.basicConfig(
 log = logging.getLogger("producer")
 
 SENT_FILE = Path("/app/sent/sent.log")
+# Duplicados programados: (momento de envio, desempate, mensaje). heapq entrega primero el mas proximo.
+pending_duplicates = []
+tie_breaker = itertools.count()
 MIN_VALID_MS = 30_000  # regla 1: menos de 30 s es un skip
 # Zonas horarias de los telefonos simulados. El processor debe pasarlas a UTC (regla 3).
 PHONE_TIMEZONES = [timezone(timedelta(hours=h)) for h in (-7, -6, -5, -3, 0, 1)]
@@ -109,6 +112,11 @@ def report_original(err, msg):
     with SENT_FILE.open("a", encoding="utf-8") as sent:
         sent.write(value + "\n")
     log.info("Enviado (offset %s): %s", msg.offset(), value)
+    # El duplicado se programa hasta aqui, con el original ya guardado: si se programara al enviarlo
+    # y Kafka no lo confirmara, se contaria un duplicado cuyo original no esta en sent.log.
+    if random.random() < config["duplicate_rate"]:
+        send_at = time.monotonic() + random.uniform(0, config["max_duplicate_delay"])
+        heapq.heappush(pending_duplicates, (send_at, next(tie_breaker), value))
 
 
 def report_duplicate(err, msg):
@@ -156,9 +164,6 @@ log.info(
     config["max_duplicate_delay"], config["max_play_age_days"], subscriber_ids, list(durations),
 )
 
-# Duplicados programados: (momento de envio, desempate, mensaje). heapq entrega primero el mas proximo.
-pending_duplicates = []
-tie_breaker = itertools.count()
 next_play_at = time.monotonic()
 try:
     while True:
@@ -169,11 +174,9 @@ try:
         if now >= next_play_at:
             value = json.dumps(new_play(subscriber_ids, durations, config))
             producer.produce(config["topic"], value=value, on_delivery=report_original)
-            if random.random() < config["duplicate_rate"]:
-                send_at = now + random.uniform(0, config["max_duplicate_delay"])
-                heapq.heappush(pending_duplicates, (send_at, next(tie_breaker), value))
             next_play_at += config["interval"]
-        # poll() atiende las confirmaciones de Kafka (llama a report_*) mientras espera al siguiente envio.
+        # poll() atiende las confirmaciones de Kafka (llama a report_*, que programa los duplicados)
+        # mientras espera al siguiente envio.
         wake_at = min([next_play_at] + [d[0] for d in pending_duplicates[:1]])
         producer.poll(max(0.0, min(1.0, wake_at - time.monotonic())))
 except SystemExit:

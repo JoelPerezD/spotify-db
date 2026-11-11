@@ -2,9 +2,10 @@
 
 El crudo es un archivo por hora de llegada a Kafka, en UTC:
     /app/data/raw/<topico>/2026-11-10T22.log
-La hora sale del timestamp que Kafka guarda con cada mensaje, no de played_at. Asi el
-processor sabe cuando llego cada mensaje (la regla de duplicados se mide por la llegada)
-sin que el consumer modifique el contenido.
+La hora sale del timestamp que Kafka guarda con cada mensaje (LogAppendTime: la hora en que
+llego al broker), no de played_at. Asi el processor sabe cuando llego cada mensaje (la regla
+de duplicados se mide por la llegada) sin que el consumer modifique el contenido. El unico
+cambio: un salto de linea dentro del mensaje se guarda como espacio (ver as_one_line).
 
 Cada accion y cada error se anotan en /app/logs/consumer.log."""
 
@@ -38,6 +39,24 @@ def raw_file_for(msg, raw_dir):
     return raw_dir / f"{arrived:%Y-%m-%dT%H}.log"
 
 
+def as_one_line(value):
+    """El crudo guarda un mensaje por linea. En JSON un salto de linea solo puede ser espacio entre
+    elementos (dentro de un texto va escapado como \\n), asi que cambiarlo por un espacio no cambia
+    el significado del mensaje: un JSON con sangria de otro productor sigue siendo un solo mensaje."""
+    return value.replace(b"\r", b" ").replace(b"\n", b" ")
+
+
+def close_incomplete_line(raw_file):
+    """Si el consumer murio a mitad de una escritura, el archivo termina sin salto de linea. Se
+    cierra ese pedazo para que el mensaje que Kafka vuelve a entregar quede en su propia linea."""
+    if raw_file.exists() and raw_file.stat().st_size > 0:
+        with raw_file.open("rb+") as raw:
+            raw.seek(-1, os.SEEK_END)
+            if raw.read(1) != b"\n":
+                raw.write(b"\n")
+                log.warning("%s terminaba con una linea incompleta; se cerro para no mezclarla", raw_file.name)
+
+
 def stop(signum, frame):
     # docker compose stop manda SIGTERM: salimos por el finally, que cierra el consumer.
     raise SystemExit(0)
@@ -52,20 +71,30 @@ except KeyError as e:
 
 # /app/data es el volumen crudo, que el processor tambien ve.
 raw_dir = Path("/app/data/raw") / topic
-raw_dir.mkdir(parents=True, exist_ok=True)
+try:
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    for existing in raw_dir.glob("*.log"):
+        close_incomplete_line(existing)
+except OSError:
+    log.exception("No se pudo crear la carpeta del crudo %s; revisa el volumen crudo", raw_dir)
+    sys.exit(1)
 
-consumer = Consumer({
-    "bootstrap.servers": bootstrap_servers,
-    "group.id": "ingestion",
-    "auto.offset.reset": "earliest",
-    "allow.auto.create.topics": True,
-    # La libreria confirma a Kafka cada pocos segundos hasta donde leimos. Por omision marca un
-    # mensaje como leido en cuanto lo entrega; asi, si el programa muere antes de escribirlo,
-    # ese mensaje se perderia. Con esto lo marcamos nosotros (store_offsets) despues de escribirlo.
-    # Lo peor que puede pasar es escribir un mensaje dos veces, y el processor quita duplicados.
-    "enable.auto.offset.store": False,
-})
-consumer.subscribe([topic])
+try:
+    consumer = Consumer({
+        "bootstrap.servers": bootstrap_servers,
+        "group.id": "ingestion",
+        "auto.offset.reset": "earliest",
+        "allow.auto.create.topics": True,
+        # La libreria confirma a Kafka cada pocos segundos hasta donde leimos. Por omision marca un
+        # mensaje como leido en cuanto lo entrega; asi, si el programa muere antes de escribirlo,
+        # ese mensaje se perderia. Con esto lo marcamos nosotros (store_offsets) despues de escribirlo.
+        # Lo peor que puede pasar es escribir un mensaje dos veces, y el processor quita duplicados.
+        "enable.auto.offset.store": False,
+    })
+    consumer.subscribe([topic])
+except Exception:
+    log.exception("Configuracion invalida del consumer; revisa KAFKA_BOOTSTRAP_SERVERS y KAFKA_TOPIC")
+    sys.exit(1)
 signal.signal(signal.SIGTERM, stop)
 log.info("Suscrito al topico %s; el crudo se escribe en %s/<hora UTC>.log", topic, raw_dir)
 
@@ -86,9 +115,9 @@ try:
             consumer.store_offsets(msg)
             continue
         raw_file = raw_file_for(msg, raw_dir)
-        # Modo "ab": se agrega al final, en bytes, exactamente como llego. Una linea por mensaje.
+        # Modo "ab": se agrega al final, en bytes, como llego. Una linea por mensaje.
         with raw_file.open("ab") as raw:
-            raw.write(msg.value() + b"\n")
+            raw.write(as_one_line(msg.value()) + b"\n")
         consumer.store_offsets(msg)
         log.info("Guardado en %s (offset %s): %s", raw_file.name, msg.offset(), msg.value().decode("utf-8", "replace"))
 except SystemExit:
